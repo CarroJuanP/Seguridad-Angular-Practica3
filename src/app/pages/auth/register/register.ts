@@ -1,35 +1,100 @@
 import { Component } from '@angular/core';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { MessageService } from 'primeng/api';
+
+/* PrimeNG */
+import { CardModule } from 'primeng/card';
 import { StepperModule } from 'primeng/stepper';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
-import { FormsModule } from '@angular/forms';
-import { CardModule } from 'primeng/card';
+import { DatePickerModule } from 'primeng/datepicker';
 
 @Component({
   selector: 'app-register',
   standalone: true,
+  templateUrl: './register.html',
   imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    CardModule,
     StepperModule,
     ButtonModule,
     InputTextModule,
     PasswordModule,
-    FormsModule,
-    CardModule
+    DatePickerModule
   ],
-  templateUrl: './register.html',
-  styleUrl: './register.css'
+  providers: [MessageService]
 })
 export class Register {
-  activeStep = 1;
 
-  name = '';
-  email = '';
-  password = '';
+  activeStep: number = 0;
 
-  option1 = false;
-  option2 = false;
-  option3 = false;
-  option4 = false;
-  option5 = false;
+  registerForm: FormGroup;
+
+  constructor(private fb: FormBuilder, private messageService: MessageService) {
+    this.registerForm = this.fb.group({
+      nombreCompleto: ['', Validators.required],
+      fechaNacimiento: [null, Validators.required],
+      direccion: ['', Validators.required],
+      // telefono solo números
+      telefono: ['', [Validators.required, Validators.pattern(/^[0-9]+$/)]],
+      usuario: ['', Validators.required],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [
+        Validators.required,
+        Validators.minLength(10),
+        // debe contener al menos un símbolo especial
+        Validators.pattern(/^(?=.[!@#$%^&])/)
+      ]],
+      confirmPassword: ['', Validators.required]
+    }, { validators: this.passwordsMatchValidator });
+  }
+
+  esMayorDeEdad(): boolean {
+    const fecha = this.registerForm.get('fechaNacimiento')?.value;
+    if (!fecha) return false;
+
+    const hoy = new Date();
+    const nacimiento = new Date(fecha);
+
+    let edad = hoy.getFullYear() - nacimiento.getFullYear();
+    const mes = hoy.getMonth() - nacimiento.getMonth();
+
+    if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
+      edad--;
+    }
+
+    return edad >= 18;
+  }
+
+  // Validador a nivel de grupo, comprueba que password y confirmPassword coinciden
+  private passwordsMatchValidator(group: FormGroup) {
+    const pass = group.get('password')?.value;
+    const confirm = group.get('confirmPassword')?.value;
+    return pass && confirm && pass === confirm ? null : { notMatching: true };
+  }
+
+  // accesores rápidos
+  get f() {
+    return this.registerForm.controls;
+  }
+
+  registrar() {
+    if (this.registerForm.valid && this.esMayorDeEdad()) {
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Registro correcto',
+        detail: 'Usuario creado (sin backend)'
+      });
+      console.log('Formulario válido:', this.registerForm.value);
+    } else {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Formulario inválido',
+        detail: 'Revise los campos marcados'
+      });
+    }
+  }
 }
